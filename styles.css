@@ -1,0 +1,108 @@
+/* Day View timeline */
+
+.view-content.dayview {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 0;
+}
+
+.dayview-status {
+	padding: 6px 10px;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dayview-status.is-hidden {
+	display: none;
+}
+
+.dayview-scroll {
+	flex: 1;
+	overflow-y: auto;
+	position: relative;
+}
+
+.dayview-canvas {
+	position: relative;
+	margin: 8px 8px 8px 52px;
+}
+
+.dayview-hours,
+.dayview-blocks {
+	position: absolute;
+	inset: 0;
+}
+
+.dayview-hour {
+	position: absolute;
+	left: 0;
+	right: 0;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.dayview-hour-label {
+	position: absolute;
+	left: -48px;
+	top: -0.6em;
+	width: 42px;
+	text-align: right;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.dayview-block {
+	position: absolute;
+	box-sizing: border-box;
+	padding: 2px 6px;
+	border-radius: 4px;
+	border: 1px solid var(--background-primary);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-small);
+	line-height: 1.25;
+	overflow: hidden;
+}
+
+.dayview-block.is-done {
+	opacity: 0.45;
+}
+
+.dayview-block.is-done .dayview-block-title {
+	text-decoration: line-through;
+}
+
+.dayview-block-time {
+	font-size: var(--font-ui-smaller);
+	opacity: 0.85;
+	white-space: nowrap;
+}
+
+.dayview-block-title {
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+
+.dayview-now {
+	position: absolute;
+	left: -6px;
+	right: 0;
+	height: 0;
+	border-top: 2px solid var(--color-red);
+	pointer-events: none;
+	z-index: 2;
+}
+
+.dayview-now::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: -5px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--color-red);
+}
