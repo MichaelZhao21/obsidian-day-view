@@ -1,0 +1,31 @@
+{
+  "name": "obsidian-day-view",
+  "version": "0.1.0",
+  "description": "Sidebar timeline built from the timed top-level checkboxes in today's daily note.",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/make-fixture.mjs && node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "fixture": "node scripts/make-fixture.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "daily-note",
+    "timeline"
+  ],
+  "author": "Michael Zhao",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "builtin-modules": "^5.4.0",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.13.1",
+    "obsidian-daily-notes-interface": "^0.9.5",
+    "tslib": "^2.8.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
