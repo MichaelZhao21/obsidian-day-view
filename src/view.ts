@@ -1,5 +1,6 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
-import { resolveDailyNote } from "./daily-note";
+import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { formatDate, resolveDailyNote } from "./daily-note";
+import { addDays, dayKey, isSameDay, startOfDay } from "./dates";
 import { layoutItems } from "./layout";
 import type DayViewPlugin from "./main";
 import { MINUTES_PER_DAY, parseNote, type TimelineItem } from "./time-parser";
@@ -8,6 +9,8 @@ export const VIEW_TYPE_DAY_VIEW = "day-view-timeline";
 
 /** Shortest block drawn, so a 5-minute item still has a visible title. */
 const MIN_BLOCK_PX = 18;
+/** Where an empty non-today schedule scrolls to. */
+const DEFAULT_SCROLL_MIN = 8 * 60;
 
 function hourLabel(hour: number): string {
 	if (hour === 0) return "12am";
@@ -31,6 +34,13 @@ function minutesNow(): number {
 }
 
 export class DayViewTimeline extends ItemView {
+	private selectedDate: Date = startOfDay(new Date());
+	/** Vault path of the note the view currently shows, whether or not it exists. */
+	private currentPath = "";
+	private currentItems: TimelineItem[] = [];
+
+	private dateLabelEl!: HTMLElement;
+	private todayButtonEl!: HTMLButtonElement;
 	private statusEl!: HTMLElement;
 	private scrollEl!: HTMLElement;
 	private canvasEl!: HTMLElement;
@@ -61,6 +71,18 @@ export class DayViewTimeline extends ItemView {
 		const root = this.contentEl;
 		root.empty();
 		root.addClass("dayview");
+
+		const toolbar = root.createDiv({ cls: "dayview-toolbar" });
+		const prevEl = toolbar.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Previous day" } });
+		setIcon(prevEl, "chevron-left");
+		prevEl.addEventListener("click", () => void this.shiftDay(-1));
+		this.dateLabelEl = toolbar.createDiv({ cls: "dayview-date" });
+		const nextEl = toolbar.createEl("button", { cls: "clickable-icon", attr: { "aria-label": "Next day" } });
+		setIcon(nextEl, "chevron-right");
+		nextEl.addEventListener("click", () => void this.shiftDay(1));
+		this.todayButtonEl = toolbar.createEl("button", { cls: "dayview-today", text: "Today" });
+		this.todayButtonEl.addEventListener("click", () => void this.goToDate(new Date()));
+
 		this.statusEl = root.createDiv({ cls: "dayview-status" });
 		this.scrollEl = root.createDiv({ cls: "dayview-scroll" });
 		this.canvasEl = this.scrollEl.createDiv({ cls: "dayview-canvas" });
@@ -71,7 +93,36 @@ export class DayViewTimeline extends ItemView {
 		this.registerInterval(window.setInterval(() => this.updateNowLine(), 60_000));
 
 		await this.refresh();
-		this.scrollToNow();
+		this.scrollIntoPlace();
+	}
+
+	get isToday(): boolean {
+		return isSameDay(this.selectedDate, new Date());
+	}
+
+	get selectedDayKey(): string {
+		return dayKey(this.selectedDate);
+	}
+
+	/** True when a change to `path` affects what this view shows. */
+	matchesPath(path: string): boolean {
+		return path === this.currentPath;
+	}
+
+	async shiftDay(days: number): Promise<void> {
+		await this.goToDate(addDays(this.selectedDate, days));
+	}
+
+	async goToDate(date: Date): Promise<void> {
+		this.selectedDate = startOfDay(date);
+		await this.refresh();
+		this.scrollIntoPlace();
+	}
+
+	/** Called once a minute past midnight: a view that was on "today" follows to the new day. */
+	async handleDayRollover(previousDayKey: string): Promise<void> {
+		if (this.selectedDayKey === previousDayKey) await this.goToDate(new Date());
+		else this.updateNowLine();
 	}
 
 	private get hourHeight(): number {
@@ -82,30 +133,47 @@ export class DayViewTimeline extends ItemView {
 		return (min / 60) * this.hourHeight;
 	}
 
-	/** Re-resolves the daily note, re-parses it, and redraws the whole column. */
+	/** Re-resolves the selected day's note, re-parses it, and redraws the whole column. */
 	async refresh(): Promise<void> {
 		this.canvasEl.style.height = `${this.minutesToPx(MINUTES_PER_DAY)}px`;
 		this.renderHours();
+		this.renderToolbar();
 
-		const { path, file } = resolveDailyNote(this.app, this.plugin.settings, new Date());
+		const { path, file } = resolveDailyNote(this.app, this.plugin.settings, this.selectedDate);
+		this.currentPath = path;
 		if (!file) {
 			this.setStatus(`No daily note at ${path}`);
-			this.renderBlocks([]);
+			this.currentItems = [];
 		} else {
-			const items = parseNote(await this.app.vault.cachedRead(file));
-			this.setStatus(items.length ? "" : `No timed tasks in ${file.basename}`);
-			this.renderBlocks(items);
+			this.currentItems = parseNote(await this.app.vault.cachedRead(file));
+			this.setStatus(this.currentItems.length ? "" : `No timed tasks in ${file.basename}`);
 		}
+		this.renderBlocks(this.currentItems);
 		this.updateNowLine();
 	}
 
-	/** Scrolls so the current time sits in the vertical middle of the pane. */
-	scrollToNow(): void {
+	/** Centers the current time on today; otherwise the first item, or a default morning hour. */
+	scrollIntoPlace(): void {
+		let targetMin: number;
+		if (this.isToday) targetMin = minutesNow();
+		else if (this.currentItems.length) targetMin = Math.min(...this.currentItems.map((i) => i.startMin));
+		else targetMin = DEFAULT_SCROLL_MIN;
+		this.scrollToMinute(targetMin);
+	}
+
+	private scrollToMinute(min: number): void {
 		// Layout may not have run yet right after the view opens, so measure on the next frame.
 		window.requestAnimationFrame(() => {
-			const target = this.minutesToPx(minutesNow()) - this.scrollEl.clientHeight / 2;
+			const target = this.minutesToPx(min) - this.scrollEl.clientHeight / 2;
 			this.scrollEl.scrollTop = Math.max(0, target);
 		});
+	}
+
+	private renderToolbar(): void {
+		this.dateLabelEl.setText(formatDate(this.selectedDate, "ddd, MMM D"));
+		this.dateLabelEl.setAttribute("aria-label", formatDate(this.selectedDate, "dddd, MMMM D, YYYY"));
+		this.dateLabelEl.toggleClass("is-today", this.isToday);
+		this.todayButtonEl.disabled = this.isToday;
 	}
 
 	private setStatus(text: string): void {
@@ -141,6 +209,7 @@ export class DayViewTimeline extends ItemView {
 	}
 
 	private updateNowLine(): void {
+		this.nowLineEl.toggleClass("is-hidden", !this.isToday);
 		this.nowLineEl.style.top = `${this.minutesToPx(minutesNow())}px`;
 	}
 }

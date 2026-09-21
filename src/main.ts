@@ -1,31 +1,43 @@
 import { Plugin, TAbstractFile, debounce } from "obsidian";
-import { dailyNotePath, formatDate } from "./daily-note";
+import { dayKey } from "./dates";
 import { DEFAULT_SETTINGS, DayViewSettingTab, type DayViewSettings } from "./settings";
 import { DayViewTimeline, VIEW_TYPE_DAY_VIEW } from "./view";
 
-const DAY_KEY_FORMAT = "YYYY-MM-DD";
-
 export default class DayViewPlugin extends Plugin {
 	settings: DayViewSettings = { ...DEFAULT_SETTINGS };
-	private lastRenderedDay = "";
+	private todayKey = dayKey(new Date());
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
 		this.registerView(VIEW_TYPE_DAY_VIEW, (leaf) => new DayViewTimeline(leaf, this));
 		this.addRibbonIcon("calendar-clock", "Open Day View", () => void this.activateView());
+		this.addCommand({ id: "open", name: "Open timeline", callback: () => void this.activateView() });
 		this.addCommand({
-			id: "open",
-			name: "Open timeline",
-			callback: () => void this.activateView(),
+			id: "next-day",
+			name: "Next day",
+			callback: () => void this.withView((view) => view.shiftDay(1)),
+		});
+		this.addCommand({
+			id: "previous-day",
+			name: "Previous day",
+			callback: () => void this.withView((view) => view.shiftDay(-1)),
+		});
+		this.addCommand({
+			id: "today",
+			name: "Go to today",
+			callback: () => void this.withView((view) => view.goToDate(new Date())),
 		});
 		this.addSettingTab(new DayViewSettingTab(this.app, this));
 
-		// Redraw when the current daily note changes on disk. Rename passes the old path as a second argument.
+		// Redraw any view whose note changed on disk. Rename passes the old path as a second argument.
 		const onVaultChange = debounce(
 			(file: TAbstractFile, oldPath?: string) => {
-				const today = dailyNotePath(this.settings, new Date());
-				if (file.path === today || oldPath === today) this.refreshViews();
+				for (const view of this.views()) {
+					if (view.matchesPath(file.path) || (oldPath !== undefined && view.matchesPath(oldPath))) {
+						void view.refresh();
+					}
+				}
 			},
 			250,
 			true,
@@ -35,10 +47,14 @@ export default class DayViewPlugin extends Plugin {
 		this.registerEvent(this.app.vault.on("delete", onVaultChange));
 		this.registerEvent(this.app.vault.on("rename", onVaultChange));
 
-		// Day rollover: once the date changes, point the view at the new daily note.
+		// Day rollover: views that were on today follow to the new day.
 		this.registerInterval(
 			window.setInterval(() => {
-				if (this.todayKey() !== this.lastRenderedDay) this.refreshViews();
+				const now = dayKey(new Date());
+				if (now === this.todayKey) return;
+				const previous = this.todayKey;
+				this.todayKey = now;
+				for (const view of this.views()) void view.handleDayRollover(previous);
 			}, 60_000),
 		);
 	}
@@ -49,26 +65,30 @@ export default class DayViewPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
-		this.refreshViews();
+		for (const view of this.views()) void view.refresh();
 	}
 
-	refreshViews(): void {
-		this.lastRenderedDay = this.todayKey();
-		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_DAY_VIEW)) {
-			if (leaf.view instanceof DayViewTimeline) void leaf.view.refresh();
-		}
+	private views(): DayViewTimeline[] {
+		return this.app.workspace
+			.getLeavesOfType(VIEW_TYPE_DAY_VIEW)
+			.map((leaf) => leaf.view)
+			.filter((view): view is DayViewTimeline => view instanceof DayViewTimeline);
 	}
 
-	private todayKey(): string {
-		return formatDate(new Date(), DAY_KEY_FORMAT);
+	/** Runs an action against the open timeline, opening it first if needed. */
+	private async withView(action: (view: DayViewTimeline) => Promise<void>): Promise<void> {
+		const view = (await this.activateView()) ?? this.views()[0];
+		if (view) await action(view);
 	}
 
-	private async activateView(): Promise<void> {
+	private async activateView(): Promise<DayViewTimeline | null> {
 		const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_DAY_VIEW)[0];
 		const leaf = existing ?? this.app.workspace.getRightLeaf(false);
-		if (!leaf) return;
+		if (!leaf) return null;
 		if (!existing) await leaf.setViewState({ type: VIEW_TYPE_DAY_VIEW, active: true });
 		await this.app.workspace.revealLeaf(leaf);
-		if (leaf.view instanceof DayViewTimeline) leaf.view.scrollToNow();
+		if (!(leaf.view instanceof DayViewTimeline)) return null;
+		leaf.view.scrollIntoPlace();
+		return leaf.view;
 	}
 }

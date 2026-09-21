@@ -37,6 +37,19 @@ const note = `# ${today}
 Some prose with 3pm in it that is not a task.
 `;
 
+// Neighbouring days so the previous/next toolbar has something to land on.
+const neighbours = [
+	[-1, "# Yesterday\n\n- [x] 9am Standup\n- [x] 10am-11:30am Design review\n- [ ] 2pm Slipped task, never done\n"],
+	[1, "# Tomorrow\n\n- [ ] 8:30am Dentist\n- [ ] 12pm-1pm Lunch with Sam\n- [ ] 15:00-17:00 Deep work\n"],
+];
+
 mkdirSync(dir, { recursive: true });
 writeFileSync(file, note, "utf8");
 console.log(`wrote ${file}`);
+for (const [offset, body] of neighbours) {
+	const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+	const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+	const path = join(dir, `${key}.md`);
+	writeFileSync(path, body, "utf8");
+	console.log(`wrote ${path}`);
+}
