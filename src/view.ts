@@ -34,7 +34,7 @@ function minutesNow(): number {
 }
 
 export class DayViewTimeline extends ItemView {
-	private selectedDate: Date = startOfDay(new Date());
+	private _selectedDate: Date = startOfDay(new Date());
 	/** Vault path of the note the view currently shows, whether or not it exists. */
 	private currentPath = "";
 	private currentItems: TimelineItem[] = [];
@@ -96,12 +96,16 @@ export class DayViewTimeline extends ItemView {
 		this.scrollIntoPlace();
 	}
 
+	get selectedDate(): Date {
+		return this._selectedDate;
+	}
+
 	get isToday(): boolean {
-		return isSameDay(this.selectedDate, new Date());
+		return isSameDay(this._selectedDate, new Date());
 	}
 
 	get selectedDayKey(): string {
-		return dayKey(this.selectedDate);
+		return dayKey(this._selectedDate);
 	}
 
 	/** True when a change to `path` affects what this view shows. */
@@ -110,11 +114,11 @@ export class DayViewTimeline extends ItemView {
 	}
 
 	async shiftDay(days: number): Promise<void> {
-		await this.goToDate(addDays(this.selectedDate, days));
+		await this.goToDate(addDays(this._selectedDate, days));
 	}
 
 	async goToDate(date: Date): Promise<void> {
-		this.selectedDate = startOfDay(date);
+		this._selectedDate = startOfDay(date);
 		await this.refresh();
 		this.scrollIntoPlace();
 	}
@@ -139,7 +143,7 @@ export class DayViewTimeline extends ItemView {
 		this.renderHours();
 		this.renderToolbar();
 
-		const { path, file } = resolveDailyNote(this.app, this.plugin.settings, this.selectedDate);
+		const { path, file } = resolveDailyNote(this.app, this.plugin.settings, this._selectedDate);
 		this.currentPath = path;
 		if (!file) {
 			this.setStatus(`No daily note at ${path}`);
@@ -170,8 +174,8 @@ export class DayViewTimeline extends ItemView {
 	}
 
 	private renderToolbar(): void {
-		this.dateLabelEl.setText(formatDate(this.selectedDate, "ddd, MMM D"));
-		this.dateLabelEl.setAttribute("aria-label", formatDate(this.selectedDate, "dddd, MMMM D, YYYY"));
+		this.dateLabelEl.setText(formatDate(this._selectedDate, "ddd, MMM D"));
+		this.dateLabelEl.setAttribute("aria-label", formatDate(this._selectedDate, "dddd, MMMM D, YYYY"));
 		this.dateLabelEl.toggleClass("is-today", this.isToday);
 		this.todayButtonEl.disabled = this.isToday;
 	}

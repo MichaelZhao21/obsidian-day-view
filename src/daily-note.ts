@@ -1,5 +1,6 @@
 import { App, TFile, moment, normalizePath } from "obsidian";
 import { getDailyNoteSettings } from "obsidian-daily-notes-interface";
+import { relativeNoteName } from "./note-path";
 import type { DayViewSettings } from "./settings";
 
 export interface DailyNoteLocation {
@@ -11,8 +12,19 @@ export interface DailyNoteLocation {
 export const DEFAULT_DAILY_NOTE_FORMAT = "YYYY-MM-DD";
 
 /** The obsidian typings expose moment as a namespace, not a callable, so narrow it to what this plugin uses. */
-export const formatDate = (date: Date, format: string): string =>
-	(moment as unknown as (d: Date) => { format(f: string): string })(date).format(format);
+interface MomentLike {
+	(date: Date): { format(format: string): string };
+	(text: string, format: string, strict: boolean): { isValid(): boolean; toDate(): Date };
+}
+const momentFn = moment as unknown as MomentLike;
+
+export const formatDate = (date: Date, format: string): string => momentFn(date).format(format);
+
+/** Strict parse: the text must match the format exactly, so "2026-09-21 notes" is not a date. */
+export const parseDate = (text: string, format: string): Date | null => {
+	const parsed = momentFn(text, format, true);
+	return parsed.isValid() ? parsed.toDate() : null;
+};
 
 /** Folder and format from the core Daily Notes plugin (or Periodic Notes when it owns daily notes). */
 export function coreDailyNoteSettings(): DailyNoteLocation {
@@ -34,6 +46,13 @@ export function dailyNotePath(settings: DayViewSettings, date: Date): string {
 	const { folder, format } = effectiveLocation(settings);
 	const name = formatDate(date, format);
 	return normalizePath(folder ? `${folder}/${name}.md` : `${name}.md`);
+}
+
+/** The day a vault path represents under the effective daily-note folder and format, or null if it is not a daily note. */
+export function dateOfDailyNote(settings: DayViewSettings, path: string): Date | null {
+	const { folder, format } = effectiveLocation(settings);
+	const name = relativeNoteName(path, folder);
+	return name === null ? null : parseDate(name, format);
 }
 
 export interface ResolvedDailyNote {

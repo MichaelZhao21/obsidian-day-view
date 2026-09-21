@@ -1,5 +1,6 @@
-import { Plugin, TAbstractFile, debounce } from "obsidian";
-import { dayKey } from "./dates";
+import { Plugin, TAbstractFile, TFile, debounce } from "obsidian";
+import { dateOfDailyNote } from "./daily-note";
+import { dayKey, isSameDay } from "./dates";
 import { DEFAULT_SETTINGS, DayViewSettingTab, type DayViewSettings } from "./settings";
 import { DayViewTimeline, VIEW_TYPE_DAY_VIEW } from "./view";
 
@@ -46,6 +47,18 @@ export default class DayViewPlugin extends Plugin {
 		this.registerEvent(this.app.vault.on("create", onVaultChange));
 		this.registerEvent(this.app.vault.on("delete", onVaultChange));
 		this.registerEvent(this.app.vault.on("rename", onVaultChange));
+
+		// Opening a daily note moves any open timeline to that day. Never opens the timeline itself.
+		this.registerEvent(
+			this.app.workspace.on("file-open", (file: TFile | null) => {
+				if (!file || !this.settings.followActiveNote) return;
+				const date = dateOfDailyNote(this.settings, file.path);
+				if (!date) return;
+				for (const view of this.views()) {
+					if (!isSameDay(view.selectedDate, date)) void view.goToDate(date);
+				}
+			}),
+		);
 
 		// Day rollover: views that were on today follow to the new day.
 		this.registerInterval(

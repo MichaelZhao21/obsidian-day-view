@@ -9,12 +9,15 @@ export interface DayViewSettings {
 	dailyNoteFormat: string;
 	/** Pixels per hour on the timeline. */
 	hourHeight: number;
+	/** When a daily note becomes the active file, switch an open timeline to that day. */
+	followActiveNote: boolean;
 }
 
 export const DEFAULT_SETTINGS: DayViewSettings = {
 	dailyNoteFolder: "",
 	dailyNoteFormat: "",
 	hourHeight: 60,
+	followActiveNote: true,
 };
 
 export const MIN_HOUR_HEIGHT = 20;
@@ -57,6 +60,16 @@ export class DayViewSettingTab extends PluginSettingTab {
 						this.plugin.settings.dailyNoteFormat = value.trim();
 						await this.plugin.saveSettings();
 					}),
+			);
+
+		new Setting(containerEl)
+			.setName("Follow the active daily note")
+			.setDesc("When you open a daily note, an open timeline switches to that day.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.followActiveNote).onChange(async (value) => {
+					this.plugin.settings.followActiveNote = value;
+					await this.plugin.saveSettings();
+				}),
 			);
 
 		new Setting(containerEl)
