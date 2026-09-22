@@ -16,7 +16,7 @@ export interface DayViewSettings {
 export const DEFAULT_SETTINGS: DayViewSettings = {
 	dailyNoteFolder: "",
 	dailyNoteFormat: "",
-	hourHeight: 60,
+	hourHeight: 80,
 	followActiveNote: true,
 };
 
