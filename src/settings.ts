@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, type SettingDefinition } from "obsidian";
 import { coreDailyNoteSettings } from "./daily-note";
 import type DayViewPlugin from "./main";
 
@@ -31,59 +31,59 @@ export class DayViewSettingTab extends PluginSettingTab {
 		super(app, plugin);
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
+	// dailyNoteFolder / dailyNoteFormat are stored trimmed; handle here
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		if (key === "dailyNoteFolder" || key === "dailyNoteFormat") {
+			(this.plugin.settings[key] as string) = typeof value === "string" ? value.trim() : "";
+		} else {
+			(this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
+		}
+		await this.plugin.saveSettings();
+	}
+
+	getSettingDefinitions(): SettingDefinition[] {
+		// Recomputed on every call (tab open, update(), search indexing), so
+		// the placeholders/descriptions always reflect the current core setting.
 		const core = coreDailyNoteSettings();
 
-		new Setting(containerEl)
-			.setName("Daily note folder")
-			.setDesc(`Leave blank to use the Daily Notes core plugin setting (currently "${core.folder || "vault root"}").`)
-			.addText((text) =>
-				text
-					.setPlaceholder(core.folder || "vault root")
-					.setValue(this.plugin.settings.dailyNoteFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.dailyNoteFolder = value.trim();
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Daily note date format")
-			.setDesc(`Moment format for the note name. Leave blank to use the Daily Notes core plugin setting (currently "${core.format}").`)
-			.addText((text) =>
-				text
-					.setPlaceholder(core.format)
-					.setValue(this.plugin.settings.dailyNoteFormat)
-					.onChange(async (value) => {
-						this.plugin.settings.dailyNoteFormat = value.trim();
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Follow the active daily note")
-			.setDesc("When you open a daily note, an open timeline switches to that day.")
-			.addToggle((toggle) =>
-				toggle.setValue(this.plugin.settings.followActiveNote).onChange(async (value) => {
-					this.plugin.settings.followActiveNote = value;
-					await this.plugin.saveSettings();
-				}),
-			);
-
-		new Setting(containerEl)
-			.setName("Hour height")
-			.setDesc("Pixels per hour on the timeline.")
-			.addSlider((slider) =>
-				slider
-					.setLimits(MIN_HOUR_HEIGHT, MAX_HOUR_HEIGHT, 10)
-					.setValue(this.plugin.settings.hourHeight)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.hourHeight = value;
-						await this.plugin.saveSettings();
-					}),
-			);
+		return [
+			{
+				name: "Daily note folder",
+				desc: `Leave blank to use the Daily Notes core plugin setting (currently "${core.folder || "vault root"}").`,
+				control: {
+					type: "text",
+					key: "dailyNoteFolder",
+					placeholder: core.folder || "vault root",
+				},
+			},
+			{
+				name: "Daily note date format",
+				desc: `Moment format for the note name. Leave blank to use the Daily Notes core plugin setting (currently "${core.format}").`,
+				control: {
+					type: "text",
+					key: "dailyNoteFormat",
+					placeholder: core.format,
+				},
+			},
+			{
+				name: "Follow the active daily note",
+				desc: "When you open a daily note, an open timeline switches to that day.",
+				control: {
+					type: "toggle",
+					key: "followActiveNote",
+				},
+			},
+			{
+				name: "Hour height",
+				desc: "Pixels per hour on the timeline.",
+				control: {
+					type: "slider",
+					key: "hourHeight",
+					min: MIN_HOUR_HEIGHT,
+					max: MAX_HOUR_HEIGHT,
+					step: 10,
+				},
+			},
+		];
 	}
 }

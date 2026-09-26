@@ -20,7 +20,6 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^26.6.1",
-    "builtin-modules": "^5.4.0",
     "esbuild": "^0.28.2",
     "obsidian": "^1.13.1",
     "obsidian-daily-notes-interface": "^0.9.5",
