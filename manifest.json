@@ -3,7 +3,7 @@
   "name": "Day View",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Sidebar timeline built from the timed top-level checkboxes in today's daily note.",
+  "description": "Sidebar timeline built from the timed top-level checkboxes in daily notes.",
   "author": "Michael Zhao",
   "isDesktopOnly": false
 }
