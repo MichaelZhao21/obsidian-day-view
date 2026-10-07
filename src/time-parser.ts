@@ -11,6 +11,8 @@ export interface TimelineItem {
 	done: boolean;
 	/** Zero-based line index in the note. */
 	lineNumber: number;
+	/** Text of the indented list items directly under the task, checkboxes stripped. */
+	bullets?: string[];
 }
 
 export interface TimeRange {
@@ -34,6 +36,9 @@ const CHECKBOX_RE = /^(?:[-*+]|\d+[.)])\s\[([ xX-])\]\s+(.*)$/;
 // start[:mm][am|pm][ - end[:mm][am|pm]] followed by whitespace, a colon, or end of text.
 const TIME_RE =
 	/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?(?:\s*[-–—]\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?(?=[\s:]|$)/i;
+
+// Indented list item, with or without a checkbox.
+const NESTED_ITEM_RE = /^\s+(?:[-*+]|\d+[.)])\s+(?:\[[ xX-]\]\s+)?(.*)$/;
 
 const LEADING_SEPARATOR_RE = /^\s*[:\-–—]?\s*/;
 
@@ -113,9 +118,18 @@ export function parseTaskLine(line: string, lineNumber: number): TimelineItem | 
 
 export function parseNote(text: string): TimelineItem[] {
 	const items: TimelineItem[] = [];
+	let parent: TimelineItem | null = null;
 	text.split(/\r?\n/).forEach((line, i) => {
 		const item = parseTaskLine(line, i);
-		if (item) items.push(item);
+		if (item) {
+			items.push(item);
+			parent = item;
+			return;
+		}
+		const nested = NESTED_ITEM_RE.exec(line);
+		if (nested && parent) (parent.bullets ??= []).push(nested[1]);
+		// Any unindented or blank line ends the task's sub-items.
+		else if (!/^\s/.test(line)) parent = null;
 	});
 	return items;
 }

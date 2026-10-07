@@ -208,6 +208,10 @@ export class DayViewTimeline extends ItemView {
 			const timeText = `${clockLabel(item.startMin)}–${clockLabel(item.endMin)}`;
 			el.createDiv({ cls: "dayview-block-time", text: timeText });
 			el.createDiv({ cls: "dayview-block-title", text: item.title });
+			if (item.bullets) {
+				const listEl = el.createEl("ul", { cls: "dayview-block-bullets" });
+				for (const bullet of item.bullets) listEl.createEl("li", { text: bullet });
+			}
 			el.setAttribute("aria-label", `${timeText} ${item.title}`);
 		}
 	}

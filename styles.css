@@ -121,6 +121,17 @@
 	overflow: hidden;
 }
 
+.dayview-block-bullets {
+	margin: 0;
+	padding-left: 1.2em;
+}
+
+.dayview-block-bullets li {
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+}
+
 .dayview-now {
 	position: absolute;
 	left: -6px;

@@ -113,4 +113,18 @@ describe("parseNote", () => {
 			[3, "Focus", true],
 		]);
 	});
+	it("collects indented items under a timed task as bullets", () => {
+		const note = [
+			"  - orphan",
+			"- [ ] 9am Standup",
+			"  - agenda",
+			"    - [x] 10am nested task",
+			"- plain bullet",
+			"  - not collected",
+			"- [ ] 1pm Focus",
+			"",
+			"  - after blank",
+		].join("\n");
+		expect(parseNote(note).map((i) => i.bullets)).toEqual([["agenda", "10am nested task"], undefined]);
+	});
 });
